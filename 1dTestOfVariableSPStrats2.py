@@ -1,4 +1,4 @@
-# f(x) = 1 / (1 + x^2) -- Test 3
+# f(x) = x^3 + 3x^2 + 12x + 6 -- Test 2
 # Sorry about all the indentation, my code editor's
 # LSP freaks out if the lines go past 80 characters.
 #
@@ -26,8 +26,8 @@ def generate_centers(
 
 
 def Exact_Function(x):
-    # runge's function
-    return 1 / (1 + (x**2))
+    # just made this one up arbitrarly
+    return (x**3 + 3 * (x**2) + 12*x + 6)
 
 
 def MultiquadricRBF(distance_matrix, shape_param):
@@ -167,7 +167,7 @@ def RecordPointWiseError(
         ):
     # this stores the data in a csv. Honestly, I chose
     # csv file some what arbitrarly. Might be better to just do .txt
-    with open("PointWiseErrors-Test3.csv", mode='w', newline="") as file:
+    with open("PointWiseErrors-Test2.csv", mode='w', newline="") as file:
         writer = csv.writer(file)
         writer.writerow([
             "x",

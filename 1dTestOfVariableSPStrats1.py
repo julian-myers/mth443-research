@@ -1,4 +1,4 @@
-# f(x) = 1 / (1 + x^2) -- Test 3
+# f(x) = e^(sin(pi*x)) -- Test 1
 # Sorry about all the indentation, my code editor's
 # LSP freaks out if the lines go past 80 characters.
 #
@@ -26,8 +26,9 @@ def generate_centers(
 
 
 def Exact_Function(x):
-    # runge's function
-    return 1 / (1 + (x**2))
+    # this was chosen from Derek Sturgill's Thesis
+    # TO DO: try more functions
+    return np.exp(np.sin(np.pi*x))
 
 
 def MultiquadricRBF(distance_matrix, shape_param):
@@ -167,7 +168,7 @@ def RecordPointWiseError(
         ):
     # this stores the data in a csv. Honestly, I chose
     # csv file some what arbitrarly. Might be better to just do .txt
-    with open("PointWiseErrors-Test3.csv", mode='w', newline="") as file:
+    with open("PointWiseErrors.csv", mode='w', newline="") as file:
         writer = csv.writer(file)
         writer.writerow([
             "x",
