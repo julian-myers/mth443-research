@@ -8,53 +8,48 @@ FILE = "PointWiseErrors.csv"
 
 def OpenFile(file_name):
     data = pd.read_csv(file_name)
-    return data
+    df = pd.DataFrame(data)
+    df = df.to_numpy()
+    return df
 
 
-def CalcAvg(data):
-    return np.average(data)
-
-
-def RecordAvgs(data1, data2, data3, data4):
+def RecordStats(data):
+    num_cols = len(data[1, :])
     with open("AvgErrors.csv", mode='w') as file:
         writer = csv.writer(file)
         writer.writerow([
-            "Constant",
-            "Linearly Varying",
-            "Exponentially Varying"
-            "Random"
+            "CSP",
+            "LSP",
+            "ESP",
+            "RSP",
+            "TSP",
+            "SSP",
+            "DLSP",
+            "HSP",
+            "BSP",
             ])
+
+        avgs = []
+        for i in range(1, num_cols):
+            avgs.append(np.average(data[:, i]))
 
         writer.writerow([
-            f"{data1:1.5e}",
-            f"{data2:1.5e}",
-            f"{data3:1.5e}",
-            f"{data4:1.5e}",
+            f"{avgs[0]:1.5e}",
+            f"{avgs[1]:1.5e}",
+            f"{avgs[2]:1.5e}",
+            f"{avgs[3]:1.5e}",
+            f"{avgs[4]:1.5e}",
+            f"{avgs[5]:1.5e}",
+            f"{avgs[6]:1.5e}",
+            f"{avgs[7]:1.5e}",
+            f"{avgs[8]:1.5e}",
             ])
+    return None
 
 
-def main():
+def main() -> None:
     data = OpenFile(FILE)
-    df = pd.DataFrame(data)
-    df = df.to_numpy()
-
-    con_errors = df[:, 1]
-    lin_errors = df[:, 2]
-    exp_errors = df[:, 3]
-    rand_errors = df[:, 4]
-
-    con_avg = CalcAvg(con_errors)
-    lin_avg = CalcAvg(lin_errors)
-    exp_avg = CalcAvg(exp_errors)
-    rand_avg = CalcAvg(rand_errors)
-
-    RecordAvgs(con_avg, lin_avg, exp_avg, rand_avg)
-
-    print(f"constant: {con_avg:1.5e}" +
-          f"linear: {lin_avg:1.5e}" +
-          f"exponential: {exp_avg:1.5e}" +
-          f"random: {rand_avg:1.5e}"
-          )
+    RecordStats(data)
     return None
 
 
