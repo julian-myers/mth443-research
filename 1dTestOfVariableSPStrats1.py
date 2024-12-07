@@ -292,14 +292,14 @@ def main() -> None:
     # as similar as possible
     # TO DO: get the condition numbers closer
     CON_SHAPE = 2.4
-    lv_shape = LinearlyVaryingSP(N=N, min_e=1.8, max_e=7.6)
+    lv_shape = LinearlyVaryingSP(N=N, min_e=3.7, max_e=8.31)
     ev_shape = ESP(N=N, min_e=2.2, max_e=7.2)
-    rand_shape = RSP(N=N, e_min=2.1, e_max=8.5)
+    rand_shape = RSP(N=N, e_min=2.75, e_max=8.82)
     sin_shape = SSP(N=N, e_min=3.1, e_max=6.5)
-    tsp_shape = TSP(N=N, e_min=2.2, e_max=7.2)
-    dlsp_shape = DLSP(N=N, e_min=2.2, e_max=7.2)
-    hsp_shape = HSP(N=N, e_min=2.2, e_max=7.2)
-    bsp_shape = BSP(N=N, e_min=2.2, e_max=7.2)
+    tsp_shape = TSP(N=N, e_min=2.1, e_max=5.6955)
+    dlsp_shape = DLSP(N=N, e_min=2.2, e_max=6.2)
+    hsp_shape = HSP(N=N, e_min=2.58, e_max=6.2)
+    bsp_shape = BSP(N=N, e_min=2.3, e_max=6.2)
 
     con_interp = Interpolate(
             centers=CENTERS,
