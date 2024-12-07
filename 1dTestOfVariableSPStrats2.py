@@ -10,7 +10,6 @@
 import numpy as np
 import numpy.linalg as npl
 import csv
-import matplotlib.pyplot as plt
 
 
 def generate_centers(
@@ -19,14 +18,18 @@ def generate_centers(
     # after a bunch of trial and error with choosing centers,
     # the internet offered this approached and it gave me the
     # best results in terms of condition numbers and error.
-    # for all shape param strategies
+    # for all center choosing strategies that I've tried
+    # TO DO: switch to the center strategy that reduces the
+    # error near bounds
+    # or.... for the sake of science it might be better to
+    # just do evenly distributed centers.
     np.random.seed(random_seed)
     centers = np.sort(np.random.uniform(domain[0], domain[1], num_centers))
     return centers
 
 
 def Exact_Function(x):
-    # just made this one up arbitrarly
+    # just made this one up
     return (x**3 + 3 * (x**2) + 12*x + 6)
 
 
@@ -36,7 +39,7 @@ def MultiquadricRBF(distance_matrix, shape_param):
     return np.sqrt(1+(distance_matrix*shape_param)**2)
 
 
-# From Sturgill and Kansa/Sarra's paper
+# From Sturgill's and Kansa/Sarra's paper
 def LinearlyVaryingSP(N, min_e, max_e):
     indices = np.arange(0, N)
     shape_params = min_e + ((max_e - min_e)/N-1)*indices
@@ -71,6 +74,8 @@ def SSP(e_min, e_max, N):
 
 
 # linearly decreasing as opposed to increasing
+# works suprisingly well considering how bad the
+# LSP is.
 def DLSP(e_max, e_min, N):
     indices = np.arange(1, N+1)
     shape_params = (
@@ -79,7 +84,7 @@ def DLSP(e_max, e_min, N):
     return shape_params
 
 
-# trigonometric shape param
+# trigonometric shape param.
 def TSP(e_min, e_max, N):
     indices = np.arange(1, N+1)
     shape_params = (
@@ -186,6 +191,8 @@ def RecordPointWiseError(
         for i, x in enumerate(eval_points):
             # while I could have just done nested loops, nested loops are
             # slow and just trying to keep the script efficient.
+            # and honestly, this helps me keep everything in order
+            # by being able to see it.
             error_data[0, i] = x
             error_data[1, i] = np.abs(interp1[i] - known_func[i])
             error_data[2, i] = np.abs(interp2[i] - known_func[i])
@@ -284,9 +291,7 @@ def main() -> None:
     # The e_min's and e_max's were determined such that
     # the condition number of the system matrices were
     # as similar as possible
-    #
-    # I feel like there is probably a better way to
-    # do this.
+    # TO DO: get the condition numbers closer
     CON_SHAPE = 2.4
     lv_shape = LinearlyVaryingSP(N=N, min_e=1.8, max_e=7.6)
     ev_shape = ESP(N=N, min_e=2.2, max_e=7.2)
@@ -370,19 +375,6 @@ def main() -> None:
             varying_shape=True,
             )
 
-    error_data = StorePointWiseError(
-            interp1=con_interp,
-            interp2=lv_interp,
-            interp3=ev_interp,
-            interp4=rand_interp,
-            interp5=tsp_interp,
-            interp6=ssp_interp,
-            interp7=dlsp_interp,
-            interp8=hsp_interp,
-            interp9=bsp_interp,
-            known_func=func_at_evals
-            )
-
     RecordPointWiseError(
             con_interp,
             lv_interp,
@@ -397,9 +389,15 @@ def main() -> None:
             func_at_evals
             )
 
-    kappa_cons = npl.cond(SysMatrix(CENTERS, MultiquadricRBF, CON_SHAPE))
-    kappa_lv = npl.cond(VaryShapeSysMatrix(CENTERS, MultiquadricRBF, lv_shape))
-    kappa_ec = npl.cond(VaryShapeSysMatrix(CENTERS, MultiquadricRBF, ev_shape))
+    kappa_cons = npl.cond(
+            SysMatrix(CENTERS, MultiquadricRBF, CON_SHAPE)
+            )
+    kappa_lv = npl.cond(
+            VaryShapeSysMatrix(CENTERS, MultiquadricRBF, lv_shape)
+            )
+    kappa_ec = npl.cond(
+            VaryShapeSysMatrix(CENTERS, MultiquadricRBF, ev_shape)
+            )
     kappa_rand = npl.cond(
             VaryShapeSysMatrix(CENTERS, MultiquadricRBF, rand_shape)
             )
@@ -448,46 +446,55 @@ def main() -> None:
     print(f"BSP Shape: Kappa = {kappa_bsp:1.5e}" +
           f"| Max Error = {max_error_bsp:1.5e}")
 
-    # plots of pointwise errors
-    # TO DO: put the plotting into a separate file
-    # and read the csv data into it to plot.
-    plt.semilogy(
-            EVAL_POINTS,
-            error_data[0, :],
-            'r',
-            label=f"$\\epsilon =${CON_SHAPE}"
-            )
-    plt.semilogy(
-            EVAL_POINTS,
-            error_data[1, :],
-            'g',
-            label='Linearly Varying $\\epsilon$'
-            )
-    plt.semilogy(
-            EVAL_POINTS,
-            error_data[2, :],
-            'b',
-            label='Exponentially Varying $\\epsilon$'
-            )
-    plt.semilogy(
-            EVAL_POINTS,
-            error_data[3, :],
-            'm',
-            label='Random $\\epsilon$'
-            )
-    plt.semilogy(
-            EVAL_POINTS,
-            error_data[4, :],
-            'y',
-            label='sin $\\epsilon$'
-            )
-
-    plt.title('Point Wise Error For Each Shape Parameter Strategy')
-    plt.grid(True)
-    plt.xlabel("x")
-    plt.ylabel("Error")
-    plt.legend()
-    plt.show()
+    # storing kappas and max errors in a csv file for later use as well.
+    with open("ConditionNumbers2.csv", mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([
+            "CSP",
+            "LSP",
+            "ESP",
+            "RSP",
+            "TSP",
+            "SSP",
+            "DLSP",
+            "HSP",
+            "BSP",
+            ])
+        writer.writerow([
+            f"{kappa_cons:1.5e}",
+            f"{kappa_lv:1.5e}",
+            f"{kappa_ec:1.5e}",
+            f"{kappa_rand:1.5e}",
+            f"{kappa_tsp:1.5e}",
+            f"{kappa_sin:1.5e}",
+            f"{kappa_dlsp:1.5e}",
+            f"{kappa_hsp:1.5e}",
+            f"{kappa_bsp:1.5e}",
+            ])
+    with open("MaxErrors2.csv", mode="w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow([
+            "CSP",
+            "LSP",
+            "ESP",
+            "RSP",
+            "TSP",
+            "SSP",
+            "DLSP",
+            "HSP",
+            "BSP",
+            ])
+        writer.writerow([
+            f"{max_error_cons:1.5e}",
+            f"{max_error_lv:1.5e}",
+            f"{max_error_ev:1.5e}",
+            f"{max_error_rand:1.5e}",
+            f"{max_error_tsp:1.5e}",
+            f"{max_error_ssp:1.5e}",
+            f"{max_error_dlsp:1.5e}",
+            f"{max_error_hsp:1.5e}",
+            f"{max_error_bsp:1.5e}",
+            ])
 
     return None
 

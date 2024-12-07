@@ -3,7 +3,9 @@ import numpy as np
 import pandas as pd
 
 
-FILE = "PointWiseErrors.csv"
+FILE1 = "PointWiseErrors-Test3.csv"
+FILE2 = "ConditionNumbers3.csv"
+FILE3 = "MaxErrors3.csv"
 
 
 def OpenFile(file_name):
@@ -13,9 +15,9 @@ def OpenFile(file_name):
     return df
 
 
-def RecordStats(data):
-    num_cols = len(data[1, :])
-    with open("AvgErrors.csv", mode='w') as file:
+def RecordStats(data1, data2, data3):
+    num_cols = len(data1[1, :])
+    with open("Test3-data.csv", mode='w') as file:
         writer = csv.writer(file)
         writer.writerow([
             "CSP",
@@ -31,7 +33,7 @@ def RecordStats(data):
 
         avgs = []
         for i in range(1, num_cols):
-            avgs.append(np.average(data[:, i]))
+            avgs.append(np.average(data1[:, i]))
 
         writer.writerow([
             f"{avgs[0]:1.5e}",
@@ -44,12 +46,21 @@ def RecordStats(data):
             f"{avgs[7]:1.5e}",
             f"{avgs[8]:1.5e}",
             ])
+        writer.writerow(data2)
+        writer.writerow(data3)
+
     return None
 
 
 def main() -> None:
-    data = OpenFile(FILE)
-    RecordStats(data)
+    pointwise_err = OpenFile(FILE1)
+    cond_nums = OpenFile(FILE2)
+    max_errs = OpenFile(FILE3)
+
+    cond_nums = cond_nums.flatten().tolist()
+    max_errs = max_errs.flatten().tolist()
+
+    RecordStats(pointwise_err, cond_nums, max_errs)
     return None
 
 
