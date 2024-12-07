@@ -10,6 +10,7 @@
 import numpy as np
 import numpy.linalg as npl
 import csv
+from rbfCenters import R1Points
 
 
 def generate_centers(
@@ -21,8 +22,8 @@ def generate_centers(
     # for all center choosing strategies that I've tried
     # TO DO: switch to the center strategy that reduces the
     # error near bounds
-    # or.... for the sake of science it might be better to
-    # just do evenly distributed centers.
+    #
+    # GOOD THING DR. SARRA'S GOT A FUNCTION FOR IT
     np.random.seed(random_seed)
     centers = np.sort(np.random.uniform(domain[0], domain[1], num_centers))
     return centers
@@ -323,7 +324,10 @@ def RecordPointWiseError(
 
 def main() -> None:
 
-    CENTERS = generate_centers(200)
+    # Dr.Sarra's RBF TOOL BOX
+    CENTERS = R1Points(
+            N=200, A=-0.005, B=1.005, a0=0
+            )
     EVAL_POINTS = np.linspace(0, 1, 250, endpoint=True)
     N = len(CENTERS)
 

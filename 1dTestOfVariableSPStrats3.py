@@ -10,6 +10,7 @@
 import numpy as np
 import numpy.linalg as npl
 import csv
+from rbfCenters import R1Points
 
 
 def generate_centers(
@@ -323,7 +324,10 @@ def RecordPointWiseError(
 
 def main() -> None:
 
-    CENTERS = generate_centers(200)
+    # Dr. Sarra's RBF TOOL BOX
+    CENTERS = R1Points(
+            N=200, A=-0.005, B=1.005, a0=0
+            )
     EVAL_POINTS = np.linspace(0, 1, 250, endpoint=True)
     N = len(CENTERS)
 
