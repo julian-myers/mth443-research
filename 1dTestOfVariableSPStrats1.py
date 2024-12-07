@@ -39,7 +39,7 @@ def MultiquadricRBF(distance_matrix, shape_param):
 
 
 # From Sturgill's and Kansa/Sarra's paper
-def LinearlyVaryingSP(N, min_e, max_e):
+def LSP(N, min_e, max_e):
     indices = np.arange(0, N)
     shape_params = min_e + ((max_e - min_e)/N-1)*indices
     return shape_params
@@ -163,6 +163,108 @@ def VaryShapeEvalMatrix(centers, eval_points, RBF, shape_param):
     return RBF(d_matrix, shape_param)
 
 
+def Interpolate(
+        centers, eval_points, RBF, shape_param, known_func, varying_shape: bool
+        ):
+
+    if varying_shape is True:
+        sys_matrix = VaryShapeSysMatrix(
+                centers=centers, RBF=RBF, shape_param=shape_param
+                )
+        exp_coeffs = npl.solve(sys_matrix, known_func)
+
+        eval_matrix = VaryShapeEvalMatrix(
+                centers=centers,
+                eval_points=eval_points,
+                RBF=RBF,
+                shape_param=shape_param
+                )
+
+        return eval_matrix@exp_coeffs, sys_matrix
+
+    else:
+        sys_matrix = SysMatrix(
+                centers=centers, RBF=RBF, shape_param=shape_param
+                )
+        exp_coeffs = npl.solve(sys_matrix, known_func)
+
+        eval_matrix = EvalMatrix(
+                centers=centers,
+                eval_points=eval_points,
+                RBF=RBF,
+                shape_param=shape_param
+                )
+
+        return eval_matrix@exp_coeffs, sys_matrix
+
+
+def StorePointWiseError(
+        interp1, interp2, interp3,
+        interp4, interp5, interp6,
+        interp7, interp8, interp9,
+        known_func
+        ):
+    # this just stores all the data in an array making it easier
+    # to handle by putting it all in one place.
+    error_data = np.zeros((9, len(interp1)))
+    for i in range(len(interp1)):
+        error_data[0, i] = np.abs(interp1[i] - known_func[i])
+        error_data[1, i] = np.abs(interp2[i] - known_func[i])
+        error_data[2, i] = np.abs(interp3[i] - known_func[i])
+        error_data[3, i] = np.abs(interp4[i] - known_func[i])
+        error_data[4, i] = np.abs(interp5[i] - known_func[i])
+        error_data[5, i] = np.abs(interp6[i] - known_func[i])
+        error_data[6, i] = np.abs(interp7[i] - known_func[i])
+        error_data[7, i] = np.abs(interp8[i] - known_func[i])
+        error_data[8, i] = np.abs(interp9[i] - known_func[i])
+    return error_data
+
+
+def RecordData(interps, func_at_evals, sys_matrices, error_data):
+    kappa = np.zeros(len(sys_matrices))
+    norms = np.zeros(len(interps))
+    avg_err = np.zeros((len(interps)))
+    for i in range(len(sys_matrices)):
+        kappa[i] = npl.cond(sys_matrices[i])
+        norms[i] = npl.norm(interps[i] - func_at_evals, np.inf)
+        avg_err[i] = np.average(error_data[:, i])
+
+    with open("Test1/Test1-NormsConds.csv", mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Shape Parameter', "max error", "condition number",
+                         "average error"])
+        writer.writerow([
+            'CSP', f"{norms[0]:1.5e}", f"{kappa[0]:1.5e}", f"{avg_err[0]:1.5e}"
+            ])
+        writer.writerow([
+            'LSP', f"{norms[1]:1.5e}", f"{kappa[1]:1.5e}", f"{avg_err[1]:1.5e}"
+            ])
+        writer.writerow([
+            'ESP', f"{norms[2]:1.5e}", f"{kappa[2]:1.5e}", f"{avg_err[2]:1.5e}"
+            ])
+        writer.writerow([
+            'RSP', f"{norms[3]:1.5e}", f"{kappa[3]:1.5e}", f"{avg_err[3]:1.5e}"
+            ])
+        writer.writerow([
+            'TSP', f"{norms[4]:1.5e}", f"{kappa[4]:1.5e}", f"{avg_err[4]:1.5e}"
+            ])
+        writer.writerow([
+            'SSP', f"{norms[5]:1.5e}", f"{kappa[5]:1.5e}", f"{avg_err[5]:1.5e}"
+            ])
+        writer.writerow([
+            'DLSP', f"{norms[6]:1.5e}", f"{kappa[6]:1.5e}",
+            f"{avg_err[6]:1.5e}"
+            ])
+        writer.writerow([
+            'HSP', f"{norms[7]:1.5e}", f"{kappa[7]:1.5e}", f"{avg_err[7]:1.5e}"
+            ])
+        writer.writerow([
+            'BSP', f"{norms[8]:1.5e}", f"{kappa[8]:1.5e}", f"{avg_err[8]:1.5e}"
+            ])
+
+    return None
+
+
 def RecordPointWiseError(
         interp1, interp2, interp3,
         interp4, interp5, interp6,
@@ -171,7 +273,7 @@ def RecordPointWiseError(
         ):
     # this stores the data in a csv. Honestly, I chose
     # csv file some what arbitrarly. Might be better to just do .txt
-    with open("PointWiseErrors-Test1.csv", mode='w', newline="") as file:
+    with open("Test1/PointWiseErrors-Test1.csv", mode='w', newline="") as file:
         writer = csv.writer(file)
         writer.writerow([
             "x",
@@ -219,63 +321,6 @@ def RecordPointWiseError(
         return None
 
 
-def Interpolate(
-        centers, eval_points, RBF, shape_param, known_func, varying_shape: bool
-        ):
-
-    if varying_shape is True:
-        sys_matrix = VaryShapeSysMatrix(
-                centers=centers, RBF=RBF, shape_param=shape_param
-                )
-        exp_coeffs = npl.solve(sys_matrix, known_func)
-
-        eval_matrix = VaryShapeEvalMatrix(
-                centers=centers,
-                eval_points=eval_points,
-                RBF=RBF,
-                shape_param=shape_param
-                )
-
-        return eval_matrix@exp_coeffs
-
-    else:
-        sys_matrix = SysMatrix(
-                centers=centers, RBF=RBF, shape_param=shape_param
-                )
-        exp_coeffs = npl.solve(sys_matrix, known_func)
-
-        eval_matrix = EvalMatrix(
-                centers=centers,
-                eval_points=eval_points,
-                RBF=RBF,
-                shape_param=shape_param
-                )
-
-        return eval_matrix@exp_coeffs
-
-
-def StorePointWiseError(
-        interp1, interp2, interp3,
-        interp4, interp5, interp6,
-        interp7, interp8, interp9,
-        known_func
-        ):
-    # this just stores all the data in an array making it easier
-    # to handle by putting it all in one place.
-    error_data = np.zeros((9, len(interp1)))
-    for i in range(len(interp1)):
-        error_data[0, i] = np.abs(interp1[i] - known_func[i])
-        error_data[1, i] = np.abs(interp2[i] - known_func[i])
-        error_data[2, i] = np.abs(interp3[i] - known_func[i])
-        error_data[3, i] = np.abs(interp4[i] - known_func[i])
-        error_data[4, i] = np.abs(interp5[i] - known_func[i])
-        error_data[5, i] = np.abs(interp6[i] - known_func[i])
-        error_data[6, i] = np.abs(interp7[i] - known_func[i])
-        error_data[7, i] = np.abs(interp8[i] - known_func[i])
-        error_data[8, i] = np.abs(interp9[i] - known_func[i])
-    return error_data
-
-
 def main() -> None:
 
     CENTERS = generate_centers(200)
@@ -292,7 +337,7 @@ def main() -> None:
     # as similar as possible
     # TO DO: get the condition numbers closer
     CON_SHAPE = 2.4
-    lv_shape = LinearlyVaryingSP(N=N, min_e=3.7, max_e=8.31)
+    lv_shape = LSP(N=N, min_e=3.7, max_e=8.31)
     ev_shape = ESP(N=N, min_e=2.2, max_e=7.2)
     rand_shape = RSP(N=N, e_min=2.75, e_max=8.82)
     sin_shape = SSP(N=N, e_min=3.1, e_max=6.5)
@@ -301,7 +346,7 @@ def main() -> None:
     hsp_shape = HSP(N=N, e_min=2.58, e_max=6.2)
     bsp_shape = BSP(N=N, e_min=2.3, e_max=6.2)
 
-    con_interp = Interpolate(
+    csp_interp, csp_sys = Interpolate(
             centers=CENTERS,
             eval_points=EVAL_POINTS,
             RBF=MultiquadricRBF,
@@ -309,7 +354,7 @@ def main() -> None:
             known_func=func_at_centers,
             varying_shape=False
             )
-    lv_interp = Interpolate(
+    lsp_interp, lsp_sys = Interpolate(
             centers=CENTERS,
             eval_points=EVAL_POINTS,
             RBF=MultiquadricRBF,
@@ -317,7 +362,7 @@ def main() -> None:
             known_func=func_at_centers,
             varying_shape=True
             )
-    ev_interp = Interpolate(
+    esp_interp, esp_sys = Interpolate(
             centers=CENTERS,
             eval_points=EVAL_POINTS,
             RBF=MultiquadricRBF,
@@ -325,7 +370,7 @@ def main() -> None:
             known_func=func_at_centers,
             varying_shape=True
             )
-    rand_interp = Interpolate(
+    rsp_interp, rsp_sys = Interpolate(
             centers=CENTERS,
             eval_points=EVAL_POINTS,
             RBF=MultiquadricRBF,
@@ -333,7 +378,7 @@ def main() -> None:
             known_func=func_at_centers,
             varying_shape=True
             )
-    tsp_interp = Interpolate(
+    tsp_interp, tsp_sys = Interpolate(
             centers=CENTERS,
             eval_points=EVAL_POINTS,
             RBF=MultiquadricRBF,
@@ -341,7 +386,7 @@ def main() -> None:
             known_func=func_at_centers,
             varying_shape=True,
             )
-    ssp_interp = Interpolate(
+    ssp_interp, ssp_sys = Interpolate(
             centers=CENTERS,
             eval_points=EVAL_POINTS,
             RBF=MultiquadricRBF,
@@ -349,7 +394,7 @@ def main() -> None:
             known_func=func_at_centers,
             varying_shape=True,
             )
-    dlsp_interp = Interpolate(
+    dlsp_interp, dlsp_sys = Interpolate(
             centers=CENTERS,
             eval_points=EVAL_POINTS,
             RBF=MultiquadricRBF,
@@ -357,7 +402,7 @@ def main() -> None:
             known_func=func_at_centers,
             varying_shape=True,
             )
-    hsp_interp = Interpolate(
+    hsp_interp, hsp_sys = Interpolate(
             centers=CENTERS,
             eval_points=EVAL_POINTS,
             RBF=MultiquadricRBF,
@@ -365,7 +410,7 @@ def main() -> None:
             known_func=func_at_centers,
             varying_shape=True,
             )
-    bsp_interp = Interpolate(
+    bsp_interp, bsp_sys = Interpolate(
             centers=CENTERS,
             eval_points=EVAL_POINTS,
             RBF=MultiquadricRBF,
@@ -374,11 +419,47 @@ def main() -> None:
             varying_shape=True,
             )
 
+    interps = [
+            csp_interp,
+            lsp_interp,
+            esp_interp,
+            rsp_interp,
+            tsp_interp,
+            ssp_interp,
+            dlsp_interp,
+            hsp_interp,
+            bsp_interp,
+            ]
+    sys_matrices = [
+            csp_sys,
+            lsp_sys,
+            esp_sys,
+            rsp_sys,
+            tsp_sys,
+            ssp_sys,
+            dlsp_sys,
+            hsp_sys,
+            bsp_sys
+            ]
+
+    error_data = StorePointWiseError(
+            interp1=csp_interp,
+            interp2=lsp_interp,
+            interp3=esp_interp,
+            interp4=rsp_interp,
+            interp5=tsp_interp,
+            interp6=ssp_interp,
+            interp7=dlsp_interp,
+            interp8=hsp_interp,
+            interp9=bsp_interp,
+            known_func=func_at_evals,
+            )
+
     RecordPointWiseError(
-            con_interp,
-            lv_interp,
-            ev_interp,
-            rand_interp,
+            csp_interp,
+            lsp_interp,
+            esp_interp,
+            rsp_interp,
             tsp_interp,
             ssp_interp,
             dlsp_interp,
@@ -388,113 +469,7 @@ def main() -> None:
             func_at_evals
             )
 
-    kappa_cons = npl.cond(
-            SysMatrix(CENTERS, MultiquadricRBF, CON_SHAPE)
-            )
-    kappa_lv = npl.cond(
-            VaryShapeSysMatrix(CENTERS, MultiquadricRBF, lv_shape)
-            )
-    kappa_ec = npl.cond(
-            VaryShapeSysMatrix(CENTERS, MultiquadricRBF, ev_shape)
-            )
-    kappa_rand = npl.cond(
-            VaryShapeSysMatrix(CENTERS, MultiquadricRBF, rand_shape)
-            )
-    kappa_sin = npl.cond(
-            VaryShapeSysMatrix(CENTERS, MultiquadricRBF, sin_shape)
-            )
-    kappa_tsp = npl.cond(
-            VaryShapeSysMatrix(CENTERS, MultiquadricRBF, tsp_shape)
-            )
-    kappa_dlsp = npl.cond(
-            VaryShapeSysMatrix(CENTERS, MultiquadricRBF, dlsp_shape)
-            )
-    kappa_hsp = npl.cond(
-            VaryShapeSysMatrix(CENTERS, MultiquadricRBF, hsp_shape)
-            )
-    kappa_bsp = npl.cond(
-            VaryShapeSysMatrix(CENTERS, MultiquadricRBF, bsp_shape)
-            )
-
-    max_error_cons = npl.norm(con_interp-func_at_evals, np.inf)
-    max_error_lv = npl.norm(lv_interp-func_at_evals, np.inf)
-    max_error_ev = npl.norm(ev_interp-func_at_evals, np.inf)
-    max_error_rand = npl.norm(rand_interp-func_at_evals, np.inf)
-    max_error_ssp = npl.norm(ssp_interp-func_at_evals, np.inf)
-    max_error_tsp = npl.norm(tsp_interp-func_at_evals, np.inf)
-    max_error_dlsp = npl.norm(dlsp_interp-func_at_evals, np.inf)
-    max_error_hsp = npl.norm(hsp_interp-func_at_evals, np.inf)
-    max_error_bsp = npl.norm(bsp_interp-func_at_evals, np.inf)
-
-    print(f"Constant Shape = {CON_SHAPE}: Kappa = {kappa_cons:1.5e}" +
-          f"| Max Error = {max_error_cons:1.5e}")
-    print(f"Linearly Varying Shape: Kappa = {kappa_lv:1.5e}" +
-          f"| Max Error = {max_error_lv:1.5e}")
-    print(f"Exponentially Varying Shape: Kappa = {kappa_ec:1.5e}" +
-          f"| Max Error = {max_error_ev:1.5e}")
-    print(f"Random Shape: Kappa = {kappa_rand:1.5e}" +
-          f"| Max Error = {max_error_rand:1.5e}")
-    print(f"Sin Shape: Kappa = {kappa_sin:1.5e}" +
-          f"| Max Error = {max_error_ssp:1.5e}")
-    print(f"TSP: Kappa = {kappa_tsp:1.5e}" +
-          f"| Max Error = {max_error_tsp:1.5e}")
-    print(f"DLSP Shape: Kappa = {kappa_dlsp:1.5e}" +
-          f"| Max Error = {max_error_dlsp:1.5e}")
-    print(f"HSP Shape: Kappa = {kappa_hsp:1.5e}" +
-          f"| Max Error = {max_error_hsp:1.5e}")
-    print(f"BSP Shape: Kappa = {kappa_bsp:1.5e}" +
-          f"| Max Error = {max_error_bsp:1.5e}")
-
-    # storing kappas and max errors in a csv file for later use as well.
-    with open("ConditionNumbers1.csv", mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow([
-            "CSP",
-            "LSP",
-            "ESP",
-            "RSP",
-            "TSP",
-            "SSP",
-            "DLSP",
-            "HSP",
-            "BSP",
-            ])
-        writer.writerow([
-            f"{kappa_cons:1.5e}",
-            f"{kappa_lv:1.5e}",
-            f"{kappa_ec:1.5e}",
-            f"{kappa_rand:1.5e}",
-            f"{kappa_tsp:1.5e}",
-            f"{kappa_sin:1.5e}",
-            f"{kappa_dlsp:1.5e}",
-            f"{kappa_hsp:1.5e}",
-            f"{kappa_bsp:1.5e}",
-            ])
-    with open("MaxErros1.csv", mode="w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow([
-            "CSP",
-            "LSP",
-            "ESP",
-            "RSP",
-            "TSP",
-            "SSP",
-            "DLSP",
-            "HSP",
-            "BSP",
-            ])
-        writer.writerow([
-            f"{max_error_cons:1.5e}",
-            f"{max_error_lv:1.5e}",
-            f"{max_error_ev:1.5e}",
-            f"{max_error_rand:1.5e}",
-            f"{max_error_tsp:1.5e}",
-            f"{max_error_ssp:1.5e}",
-            f"{max_error_dlsp:1.5e}",
-            f"{max_error_hsp:1.5e}",
-            f"{max_error_bsp:1.5e}",
-            ])
-
+    RecordData(interps, func_at_evals, sys_matrices, error_data)
     return None
 
 

@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-FILE1 = 'PointWiseErrors-Test1.csv'
-FILE2 = 'PointWiseErrors-Test2.csv'
-FILE3 = 'PointWiseErrors-Test3.csv'
+FILE1 = 'Test1/PointWiseErrors-Test1.csv'
+FILE2 = 'Test2/PointWiseErrors-Test2.csv'
+FILE3 = 'Test3/PointWiseErrors-Test3.csv'
 
 
 def ReadCSV(file: str):
