@@ -227,7 +227,7 @@ def RecordData(interps, func_at_evals, sys_matrices, error_data):
     for i in range(len(sys_matrices)):
         kappa[i] = npl.cond(sys_matrices[i])
         norms[i] = npl.norm(interps[i] - func_at_evals, np.inf)
-        avg_err[i] = np.average(error_data[:, i])
+        avg_err[i] = np.average(error_data[i, :])
 
     with open("Test2/Test2-NormsConds.csv", mode='w', newline='') as file:
         writer = csv.writer(file)
