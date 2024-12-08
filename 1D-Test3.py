@@ -1,7 +1,4 @@
-# 1 / (x**2 + 1)
-# Sorry about all the indentation, my code editor's
-# LSP freaks out if the lines go past 80 characters.
-#
+# Test3: 1 / (x**2 + 1)
 #
 # TO DO:
 # There is definitely opportunity for some object
@@ -11,22 +8,7 @@ import numpy as np
 import numpy.linalg as npl
 import csv
 from rbfCenters import R1Points
-
-
-def generate_centers(
-        num_centers, domain=(0, 1), random_seed=42
-        ):
-    # after a bunch of trial and error with choosing centers,
-    # the internet offered this approached and it gave me the
-    # best results in terms of condition numbers and error.
-    # for all center choosing strategies that I've tried
-    # TO DO: switch to the center strategy that reduces the
-    # error near bounds
-    # or.... for the sake of science it might be better to
-    # just do evenly distributed centers.
-    np.random.seed(random_seed)
-    centers = np.sort(np.random.uniform(domain[0], domain[1], num_centers))
-    return centers
+from scipy.optimize import dual_annealing
 
 
 def Exact_Function(x):
@@ -34,21 +16,49 @@ def Exact_Function(x):
 
 
 def MultiquadricRBF(distance_matrix, shape_param):
-    # would be interesting to see if each strategy has
-    # different levels of success depending on the kernel
-    return np.sqrt(1+(distance_matrix*shape_param)**2)
+    return np.sqrt(1 + (distance_matrix * shape_param) ** 2)
+
+
+def objective(params, centers, RBF, strategy_func, N, target_cond):
+    e_min, e_max = params
+    if e_min >= e_max:
+        return 1e20
+
+    shape_params = strategy_func(N, e_min, e_max)
+    sys_matrix = VaryShapeSysMatrix(centers, RBF, shape_params)
+    cond_num = npl.cond(sys_matrix)
+    return abs(cond_num - target_cond)
+
+
+# this function optimizes the e_min, e_max for each variable
+# sp strategy. Very Very effective, but also computationally intesive
+# on the cpu and easily the greatest contributer to the runtime complexity.
+def tune_shape_params(target_cond, centers, RBF, strategy_func, N):
+    bounds = [(0.5, 10.0), (1.5, 20.0)]
+    result = dual_annealing(
+        objective,
+        bounds=bounds,
+        args=(centers, RBF, strategy_func, N, target_cond),
+        maxiter=250,
+        initial_temp=5230.0,
+        visit=2.62,
+        accept=-5.0,
+    )
+
+    best_e_min, best_e_max = result.x
+    return best_e_min, best_e_max
 
 
 # From Sturgill's and Kansa/Sarra's paper
 def LSP(N, min_e, max_e):
     indices = np.arange(0, N)
-    shape_params = min_e + ((max_e - min_e)/N-1)*indices
+    shape_params = min_e + ((max_e - min_e)/(N-1))*indices
     return shape_params
 
 
 # Dr. Sarra's ! RANDOM SHAPE PARAMETER
-def RSP(e_min, e_max, N, random_seed=42):
-    np.random.seed(random_seed)
+def RSP(N, e_min, e_max):
+    np.random.seed(42)
     shape_params = e_min + (e_max - e_min) * np.random.rand(N)
     return shape_params
 
@@ -62,8 +72,10 @@ def ESP(N, min_e, max_e):
     return shape_params
 
 
-# New Shape params paper Sinusoidal Shape Parameter
-def SSP(e_min, e_max, N):
+# Sinusoidal Shape Parameter
+# NOTE: not the same as TSP
+def SSP(N, e_min, e_max):
+    N = int(N)
     indices = np.arange(1, N+1)
     shape_params = (
             e_min + (e_max - e_min)*np.sin(
@@ -73,10 +85,9 @@ def SSP(e_min, e_max, N):
     return shape_params
 
 
-# linearly decreasing as opposed to increasing
-# works suprisingly well considering how bad the
-# LSP is.
-def DLSP(e_max, e_min, N):
+# LINEARLY DECREASING SHAPE PARAM
+def DLSP(N, e_min, e_max):
+    N = int(N)
     indices = np.arange(1, N+1)
     shape_params = (
             e_max + ((e_min - e_max)/(N-1))*indices
@@ -85,7 +96,10 @@ def DLSP(e_max, e_min, N):
 
 
 # trigonometric shape param.
-def TSP(e_min, e_max, N):
+# this one shows a lot of success and look very similar to
+# Dr. Sarra's RSP.
+def TSP(N, e_min, e_max):
+    N = int(N)
     indices = np.arange(1, N+1)
     shape_params = (
             e_min + (e_max - e_min)*np.sin(indices)
@@ -94,26 +108,29 @@ def TSP(e_min, e_max, N):
 
 
 # This one seems very clever. HYBRID SHAPE PARAMETER
-def HSP(e_min, e_max, N):
-    ssp = SSP(e_min, e_max, N)
-    dlsp = DLSP(e_max, e_min, N)
+# Starting to think its a bit over engineered.
+def HSP(N, e_min, e_max):
+    N = int(N)
+    ssp = SSP(N, e_min, e_max)
+    dlsp = DLSP(N, e_max, e_min)
     esp = ESP(N, e_min, e_max)
 
     shape_params = np.zeros(N)
 
     for j in range(1, N + 1):
         if j % 3 == 1:  # j = 3k + 1
-            shape_params[j - 1] = ssp[j - 1]
+            shape_params[j-1] = ssp[j-1]
         elif j % 3 == 2:  # j = 3k + 2
-            shape_params[j - 1] = dlsp[j - 1]
+            shape_params[j-1] = dlsp[j-1]
         else:  # j = 3k + 3
-            shape_params[j - 1] = esp[j - 1]
+            shape_params[j-1] = esp[j-1]
 
     return shape_params
 
 
 # Binary Shape Parameter
-def BSP(e_min, e_max, N):
+def BSP(N, e_min, e_max):
+    N = int(N)
     shape_params = np.zeros(N)
 
     for j in range(1, N+1):
@@ -128,14 +145,13 @@ def BSP(e_min, e_max, N):
 def DistanceMatrix(points1, points2):
     # broadcasting !
     diff = points1[:, np.newaxis] - points2
-    matrix = abs(diff)
+    matrix = np.abs(diff)
     return matrix
 
 
 def SysMatrix(centers, RBF, shape_param):
-    d_matrix = DistanceMatrix(points1=centers, points2=centers)
-    s_matrix = RBF(d_matrix, shape_param)
-    return s_matrix
+    d_matrix = DistanceMatrix(centers, centers)
+    return RBF(d_matrix, shape_param)
 
 
 def VaryShapeSysMatrix(centers, RBF, shape_param):
@@ -161,7 +177,7 @@ def VaryShapeEvalMatrix(centers, eval_points, RBF, shape_param):
     for i in range(len(shape_param)):
         matrix[:, i] = RBF(d_matrix[:, i], shape_param[i])
 
-    return RBF(d_matrix, shape_param)
+    return matrix
 
 
 def Interpolate(
@@ -221,7 +237,9 @@ def StorePointWiseError(
     return error_data
 
 
-def RecordData(interps, func_at_evals, sys_matrices, error_data):
+def RecordData(
+        interps, func_at_evals, sys_matrices, error_data, e_mins, e_maxs
+        ):
     kappa = np.zeros(len(sys_matrices))
     norms = np.zeros(len(interps))
     avg_err = np.zeros((len(interps)))
@@ -233,34 +251,42 @@ def RecordData(interps, func_at_evals, sys_matrices, error_data):
     with open("Test3/Test3-NormsConds.csv", mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(['Shape Parameter', "max error", "condition number",
-                         "average error"])
+                         "average error", "e_min", "e_max"])
         writer.writerow([
-            'CSP', f"{norms[0]:1.5e}", f"{kappa[0]:1.5e}", f"{avg_err[0]:1.5e}"
+            'CSP', f"{norms[0]:1.5e}", f"{kappa[0]:1.5e}",
+            f"{avg_err[0]:1.5e}", f"{e_mins[0]:1.5f}", f"{e_maxs[0]:1.5f}"
             ])
         writer.writerow([
-            'LSP', f"{norms[1]:1.5e}", f"{kappa[1]:1.5e}", f"{avg_err[1]:1.5e}"
+            'LSP', f"{norms[1]:1.5e}", f"{kappa[1]:1.5e}",
+            f"{avg_err[1]:1.5e}", f"{e_mins[1]:1.5f}", f"{e_maxs[1]:1.5f}"
             ])
         writer.writerow([
-            'ESP', f"{norms[2]:1.5e}", f"{kappa[2]:1.5e}", f"{avg_err[2]:1.5e}"
+            'ESP', f"{norms[2]:1.5e}", f"{kappa[2]:1.5e}",
+            f"{avg_err[2]:1.5e}", f"{e_mins[2]:1.5f}", f"{e_maxs[2]:1.5f}"
             ])
         writer.writerow([
-            'RSP', f"{norms[3]:1.5e}", f"{kappa[3]:1.5e}", f"{avg_err[3]:1.5e}"
+            'RSP', f"{norms[3]:1.5e}", f"{kappa[3]:1.5e}",
+            f"{avg_err[3]:1.5e}", f"{e_mins[3]:1.5f}", f"{e_maxs[3]:1.5f}"
             ])
         writer.writerow([
-            'TSP', f"{norms[4]:1.5e}", f"{kappa[4]:1.5e}", f"{avg_err[4]:1.5e}"
+            'TSP', f"{norms[4]:1.5e}", f"{kappa[4]:1.5e}",
+            f"{avg_err[4]:1.5e}", f"{e_mins[4]:1.5f}", f"{e_maxs[4]:1.5f}"
             ])
         writer.writerow([
-            'SSP', f"{norms[5]:1.5e}", f"{kappa[5]:1.5e}", f"{avg_err[5]:1.5e}"
+            'SSP', f"{norms[5]:1.5e}", f"{kappa[5]:1.5e}",
+            f"{avg_err[5]:1.5e}", f"{e_mins[5]:1.5f}", f"{e_maxs[5]:1.5f}"
             ])
         writer.writerow([
             'DLSP', f"{norms[6]:1.5e}", f"{kappa[6]:1.5e}",
-            f"{avg_err[6]:1.5e}"
+            f"{avg_err[6]:1.5e}", f"{e_mins[6]:1.5f}", f"{e_maxs[6]:1.5f}"
             ])
         writer.writerow([
-            'HSP', f"{norms[7]:1.5e}", f"{kappa[7]:1.5e}", f"{avg_err[7]:1.5e}"
+            'HSP', f"{norms[7]:1.5e}", f"{kappa[7]:1.5e}",
+            f"{avg_err[7]:1.5e}", f"{e_mins[7]:1.5f}", f"{e_maxs[7]:1.5f}"
             ])
         writer.writerow([
-            'BSP', f"{norms[8]:1.5e}", f"{kappa[8]:1.5e}", f"{avg_err[8]:1.5e}"
+            'BSP', f"{norms[8]:1.5e}", f"{kappa[8]:1.5e}",
+            f"{avg_err[8]:1.5e}", f"{e_mins[8]:1.5f}", f"{e_maxs[8]:1.5f}"
             ])
 
     return None
@@ -324,31 +350,106 @@ def RecordPointWiseError(
 
 def main() -> None:
 
-    # Dr. Sarra's RBF TOOL BOX
+    # Dr.Sarra's RBF TOOL BOX
     CENTERS = R1Points(
             N=200, A=-0.005, B=1.005, a0=0
             )
-    EVAL_POINTS = np.linspace(0, 1, 250, endpoint=True)
-    N = len(CENTERS)
+    EVAL_POINTS = np.linspace(0, 1, 250)
+    N = int(len(CENTERS))
+    CON_SHAPE = 3
 
     func_at_centers = Exact_Function(CENTERS)
     func_at_evals = Exact_Function(EVAL_POINTS)
 
-    # our different shape parameter strategies
-    #
-    # The e_min's and e_max's were determined such that
-    # the condition number of the system matrices were
-    # as similar as possible
-    # TO DO: get the condition numbers closer
-    CON_SHAPE = 2.4
-    lv_shape = LSP(N=N, min_e=3.7, max_e=8.31)
-    ev_shape = ESP(N=N, min_e=2.2, max_e=7.2)
-    rand_shape = RSP(N=N, e_min=2.75, e_max=8.82)
-    sin_shape = SSP(N=N, e_min=3.1, e_max=6.5)
-    tsp_shape = TSP(N=N, e_min=2.1, e_max=5.6955)
-    dlsp_shape = DLSP(N=N, e_min=2.2, e_max=6.2)
-    hsp_shape = HSP(N=N, e_min=2.58, e_max=6.2)
-    bsp_shape = BSP(N=N, e_min=2.3, e_max=6.2)
+    target_cond = npl.cond(SysMatrix(CENTERS, MultiquadricRBF, CON_SHAPE))
+    lsp_min_e, lsp_max_e = tune_shape_params(
+            target_cond=target_cond,
+            centers=CENTERS,
+            RBF=MultiquadricRBF,
+            strategy_func=LSP,
+            N=N,
+            )
+    esp_min_e, esp_max_e = tune_shape_params(
+            target_cond=target_cond,
+            centers=CENTERS,
+            RBF=MultiquadricRBF,
+            strategy_func=ESP,
+            N=N,
+            )
+    rsp_min_e, rsp_max_e = tune_shape_params(
+            target_cond=target_cond,
+            centers=CENTERS,
+            RBF=MultiquadricRBF,
+            strategy_func=RSP,
+            N=N,
+            )
+    tsp_min_e, tsp_max_e = tune_shape_params(
+            target_cond=target_cond,
+            centers=CENTERS,
+            RBF=MultiquadricRBF,
+            strategy_func=TSP,
+            N=N,
+            )
+    ssp_min_e, ssp_max_e = tune_shape_params(
+            target_cond=target_cond,
+            centers=CENTERS,
+            RBF=MultiquadricRBF,
+            strategy_func=SSP,
+            N=N,
+            )
+    dlsp_min_e, dlsp_max_e = tune_shape_params(
+            target_cond=target_cond,
+            centers=CENTERS,
+            RBF=MultiquadricRBF,
+            strategy_func=DLSP,
+            N=N,
+            )
+    hsp_min_e, hsp_max_e = tune_shape_params(
+            target_cond=target_cond,
+            centers=CENTERS,
+            RBF=MultiquadricRBF,
+            strategy_func=HSP,
+            N=N,
+            )
+    bsp_min_e, bsp_max_e = tune_shape_params(
+            target_cond=target_cond,
+            centers=CENTERS,
+            RBF=MultiquadricRBF,
+            strategy_func=BSP,
+            N=N,
+            )
+    e_mins = [
+            CON_SHAPE,
+            lsp_min_e,
+            esp_min_e,
+            rsp_min_e,
+            tsp_min_e,
+            ssp_min_e,
+            dlsp_min_e,
+            hsp_min_e,
+            bsp_min_e
+            ]
+
+    e_maxs = [
+            3.0,
+            lsp_max_e,
+            esp_max_e,
+            rsp_max_e,
+            tsp_max_e,
+            ssp_max_e,
+            dlsp_max_e,
+            hsp_max_e,
+            bsp_max_e
+            ]
+
+    lv_shape = LSP(N=N, min_e=lsp_min_e, max_e=lsp_max_e)
+    ev_shape = ESP(N=N, min_e=esp_min_e, max_e=esp_max_e)
+    rand_shape = RSP(N=N, e_min=rsp_min_e, e_max=rsp_max_e)
+    sin_shape = SSP(N=N, e_min=ssp_min_e, e_max=ssp_max_e)
+    tsp_shape = TSP(N=N, e_min=tsp_min_e, e_max=tsp_max_e)
+    dlsp_shape = DLSP(N=N, e_min=dlsp_min_e, e_max=dlsp_max_e)
+    hsp_shape = HSP(N=N, e_min=hsp_min_e, e_max=hsp_max_e)
+    bsp_shape = BSP(N=N, e_min=bsp_min_e, e_max=bsp_max_e)
 
     csp_interp, csp_sys = Interpolate(
             centers=CENTERS,
@@ -434,6 +535,7 @@ def main() -> None:
             hsp_interp,
             bsp_interp,
             ]
+
     sys_matrices = [
             csp_sys,
             lsp_sys,
@@ -473,7 +575,9 @@ def main() -> None:
             func_at_evals
             )
 
-    RecordData(interps, func_at_evals, sys_matrices, error_data)
+    RecordData(
+            interps, func_at_evals, sys_matrices, error_data, e_mins, e_maxs
+            )
     return None
 
 
