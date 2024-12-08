@@ -1,8 +1,10 @@
 # Python Scripts and Data For my MTH443 Research Paper
-
 ## Variable shape parameter strategies in Radial Basis Functions
+### Tests 8 different variable shape parameter strategies in 1 dimension:
 
-##### Tests 9 different variable shape parameter strategies.
+|LSP|ESP|RSP|TSP|SSP|DLSP|HSP|BSP|
+|---|---|---|---|---|----|---|---|
+
 
 #### Test 1 Results: 
 ![alt text](/Test1/Test1Plots.png)
